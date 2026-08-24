@@ -1,46 +1,44 @@
-export type Grid = number[][];
+export type Board = number[][];
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
-export type GameState = {
-	grid: Grid;
-	score: number;
-	bestScore: number;
-	won: boolean;
-	over: boolean;
-	keepPlaying: boolean;
-};
+export const TARGET_SCORE = 5096;
 
 const SIZE = 4;
-const WIN_VALUE = 5096;
 const EMPTY = 0;
-const SPAWN_2_CHANCE = 0.9;
 
-const createEmptyGrid = (): Grid =>
+export const createEmptyBoard = (): Board =>
 	Array.from({ length: SIZE }, () => Array.from({ length: SIZE }, () => EMPTY));
 
-const cloneGrid = (grid: Grid): Grid => grid.map((row) => [...row]);
+const cloneBoard = (b: Board): Board => b.map((row) => [...row]);
 
-const getEmptyCells = (grid: Grid): [number, number][] => {
+const emptyCells = (b: Board): [number, number][] => {
 	const cells: [number, number][] = [];
 	for (let r = 0; r < SIZE; r++) {
 		for (let c = 0; c < SIZE; c++) {
-			if (grid[r][c] === EMPTY) cells.push([r, c]);
+			if (b[r][c] === EMPTY) cells.push([r, c]);
 		}
 	}
 	return cells;
 };
 
-const addRandomTile = (grid: Grid): Grid => {
-	const next = cloneGrid(grid);
-	const empty = getEmptyCells(next);
-	if (empty.length === 0) return next;
-	const [r, c] = empty[Math.floor(Math.random() * empty.length)];
-	next[r][c] = Math.random() < SPAWN_2_CHANCE ? 2 : 4;
+export const spawnTile = (b: Board): Board => {
+	const next = cloneBoard(b);
+	const free = emptyCells(next);
+	if (free.length === 0) return next;
+	const [r, c] = free[Math.floor(Math.random() * free.length)];
+	next[r][c] = Math.random() < 0.9 ? 2 : 4;
 	return next;
 };
 
-const slideRowLeft = (row: number[]): { row: number[]; score: number; moved: boolean } => {
+export const createInitialBoard = (): Board => {
+	let b = createEmptyBoard();
+	b = spawnTile(b);
+	b = spawnTile(b);
+	return b;
+};
+
+const slideLeft = (row: number[]): { row: number[]; score: number; moved: boolean } => {
 	const filtered = row.filter((v) => v !== EMPTY);
 	const merged: number[] = [];
 	let score = 0;
@@ -61,10 +59,10 @@ const slideRowLeft = (row: number[]): { row: number[]; score: number; moved: boo
 	return { row: merged, score, moved };
 };
 
-const rotateGrid = (grid: Grid, times: number): Grid => {
-	let result = cloneGrid(grid);
+const rotate = (b: Board, times: number): Board => {
+	let result = cloneBoard(b);
 	for (let t = 0; t < times; t++) {
-		const next = createEmptyGrid();
+		const next = createEmptyBoard();
 		for (let r = 0; r < SIZE; r++) {
 			for (let c = 0; c < SIZE; c++) {
 				next[c][SIZE - 1 - r] = result[r][c];
@@ -82,109 +80,39 @@ const rotations: Record<Direction, number> = {
 	up: 3
 };
 
-export const move = (grid: Grid, direction: Direction): { grid: Grid; score: number; moved: boolean } => {
+export const move = (b: Board, direction: Direction): { board: Board; scoreGained: number; moved: boolean } => {
 	const rot = rotations[direction];
-	const rotated = rotateGrid(grid, rot);
+	const rotated = rotate(b, rot);
 
 	let totalScore = 0;
 	let anyMoved = false;
-	const newGrid = rotated.map((row) => {
-		const { row: newRow, score, moved } = slideRowLeft(row);
+	const newBoard = rotated.map((row) => {
+		const { row: newRow, score, moved } = slideLeft(row);
 		totalScore += score;
 		if (moved) anyMoved = true;
 		return newRow;
 	});
 
-	const result = rotateGrid(newGrid, (4 - rot) % 4);
-	return { grid: result, score: totalScore, moved: anyMoved };
+	const result = rotate(newBoard, (4 - rot) % 4);
+	return { board: result, scoreGained: totalScore, moved: anyMoved };
 };
 
-export const canMove = (grid: Grid): boolean => {
+export const hasWon = (b: Board): boolean => {
 	for (let r = 0; r < SIZE; r++) {
 		for (let c = 0; c < SIZE; c++) {
-			if (grid[r][c] === EMPTY) return true;
-			if (c + 1 < SIZE && grid[r][c] === grid[r][c + 1]) return true;
-			if (r + 1 < SIZE && grid[r][c] === grid[r + 1][c]) return true;
+			if (b[r][c] >= TARGET_SCORE) return true;
 		}
 	}
 	return false;
 };
 
-export const hasWon = (grid: Grid): boolean => {
+export const isGameOver = (b: Board): boolean => {
 	for (let r = 0; r < SIZE; r++) {
 		for (let c = 0; c < SIZE; c++) {
-			if (grid[r][c] >= WIN_VALUE) return true;
+			if (b[r][c] === EMPTY) return false;
+			if (c + 1 < SIZE && b[r][c] === b[r][c + 1]) return false;
+			if (r + 1 < SIZE && b[r][c] === b[r + 1][c]) return false;
 		}
 	}
-	return false;
-};
-
-export const initGame = (): GameState => {
-	let grid = createEmptyGrid();
-	grid = addRandomTile(grid);
-	grid = addRandomTile(grid);
-
-	const bestScore = loadBestScore();
-
-	return {
-		grid,
-		score: 0,
-		bestScore,
-		won: false,
-		over: false,
-		keepPlaying: false
-	};
-};
-
-export const processMove = (state: GameState, direction: Direction): GameState => {
-	if (state.over) return state;
-	if (state.won && !state.keepPlaying) return state;
-
-	const result = move(state.grid, direction);
-	if (!result.moved) return state;
-
-	const newGrid = addRandomTile(result.grid);
-	const newScore = state.score + result.score;
-	const newBest = Math.max(newScore, state.bestScore);
-	const won = !state.keepPlaying && hasWon(newGrid);
-	const over = won ? false : !canMove(newGrid);
-
-	saveBestScore(newBest);
-
-	return {
-		grid: newGrid,
-		score: newScore,
-		bestScore: newBest,
-		won,
-		over,
-		keepPlaying: state.keepPlaying
-	};
-};
-
-export const startNewGame = (): GameState => {
-	const bestScore = loadBestScore();
-	let grid = createEmptyGrid();
-	grid = addRandomTile(grid);
-	grid = addRandomTile(grid);
-	return {
-		grid,
-		score: 0,
-		bestScore,
-		won: false,
-		over: false,
-		keepPlaying: false
-	};
-};
-
-const BEST_SCORE_KEY = '5096-best-score';
-
-const loadBestScore = (): number => {
-	if (typeof localStorage === 'undefined') return 0;
-	const raw = localStorage.getItem(BEST_SCORE_KEY);
-	return raw ? parseInt(raw, 10) || 0 : 0;
-};
-
-const saveBestScore = (score: number): void => {
-	if (typeof localStorage === 'undefined') return;
-	localStorage.setItem(BEST_SCORE_KEY, String(score));
+	return true;
 };
