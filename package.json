@@ -1,29 +1,20 @@
 {
   "name": "5096-game",
   "version": "1.0.0",
-  "description": "funny web game coded with SvelteKit , a reference to the famous 2048 game",
-  "main": "index.js",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/fatratra-png/5096-game.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/fatratra-png/5096-game/issues"
-  },
-  "homepage": "https://github.com/fatratra-png/5096-game#readme",
   "devDependencies": {
-    "@sveltejs/adapter-vercel": "^6.3.4",
-    "@sveltejs/kit": "^2.70.3",
-    "@sveltejs/vite-plugin-svelte": "^7.3.0",
-    "svelte": "^5.56.10",
-    "svelte-check": "^4.7.6",
-    "typescript": "^6.0.3",
-    "vite": "^8.2.2"
+    "@sveltejs/adapter-vercel": "^5.4.3",
+    "@sveltejs/kit": "^2.5.28",
+    "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "svelte": "^4.2.19",
+    "svelte-check": "^3.8.5",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.3"
   }
 }
